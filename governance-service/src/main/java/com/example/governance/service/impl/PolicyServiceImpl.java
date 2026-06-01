@@ -40,7 +40,7 @@ public class PolicyServiceImpl implements PolicyService {
 
     @Override
     @Transactional
-    public Policy submitPolicy(Long id) {
+    public Policy submitPolicy(Long id, String actor) {
         Policy policy = getPolicyById(id);
         if (policy.getStatus() != PolicyStatus.DRAFT) {
             throw new InvalidStateTransitionException(
@@ -53,7 +53,7 @@ public class PolicyServiceImpl implements PolicyService {
 
     @Override
     @Transactional
-    public Policy approvePolicy(Long id) {
+    public Policy approvePolicy(Long id, String actor) {
         Policy policy = getPolicyById(id);
         if (policy.getStatus() != PolicyStatus.PENDING_APPROVAL) {
             throw new InvalidStateTransitionException(
@@ -66,7 +66,7 @@ public class PolicyServiceImpl implements PolicyService {
 
     @Override
     @Transactional
-    public Policy rejectPolicy(Long id) {
+    public Policy rejectPolicy(Long id, String actor) {
         Policy policy = getPolicyById(id);
         if (policy.getStatus() != PolicyStatus.PENDING_APPROVAL) {
             throw new InvalidStateTransitionException(
