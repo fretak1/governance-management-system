@@ -37,7 +37,7 @@ CREATE TABLE audit_logs (
     
     policy_id BIGINT NOT NULL,
     
-    createdBy VARCHAR(100) NOT NULL,
+    actor VARCHAR(100) NOT NULL,
     
     timestamp TIMESTAMP NOT NULL
 );
