@@ -8,11 +8,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
 @RestController
 @RequestMapping("/policies")
 @RequiredArgsConstructor
+@Tag(name = "Policy Management", description = "Endpoints for policy lifecycle operations (creation, submission, approval, and rejection)")
 public class PolicyController {
 
     private final PolicyService policyService;
