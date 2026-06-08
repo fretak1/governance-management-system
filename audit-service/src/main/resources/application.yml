@@ -2,6 +2,8 @@ server:
   port: 8082
 
 spring:
+  application:
+    name: audit-service
   datasource:
     url: jdbc:postgresql://127.0.0.1:5432/audit_db
     username: postgres
@@ -22,3 +24,8 @@ spring:
         spring.json.trusted.packages: "*"
         spring.json.use.type.headers: false
         spring.json.value.default.type: com.example.audit_service.dto.GovernanceEvent
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
