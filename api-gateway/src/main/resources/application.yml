@@ -1,0 +1,31 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: governance-service
+          uri: lb://GOVERNANCE-SERVICE
+          predicates:
+            - Path=/policies, /policies/**
+        - id: audit-service
+          uri: lb://AUDIT-SERVICE
+          predicates:
+            - Path=/audits, /audits/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+management:
+  endpoint:
+    gateway:
+      enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: "*"
