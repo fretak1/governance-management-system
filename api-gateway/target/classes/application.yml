@@ -7,13 +7,10 @@ spring:
   cloud:
     gateway:
       routes:
-        # Route all /policies/** requests to governance-service via Eureka
         - id: governance-service
           uri: lb://GOVERNANCE-SERVICE
           predicates:
             - Path=/policies, /policies/**
-
-        # Route all /audits/** requests to audit-service via Eureka
         - id: audit-service
           uri: lb://AUDIT-SERVICE
           predicates:

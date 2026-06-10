@@ -1,2 +1,3 @@
 CREATE DATABASE governance_db;
 CREATE DATABASE audit_db;
+CREATE DATABASE user_db;

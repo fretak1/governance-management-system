@@ -1,0 +1,7 @@
+com\example\user_service\repository\UserRepository.class
+com\example\user_service\controller\AuthController.class
+com\example\user_service\config\SecurityConfig.class
+com\example\user_service\controller\AuthController$RegisterRequest.class
+com\example\user_service\controller\AuthController$LoginRequest.class
+com\example\user_service\UserServiceApplication.class
+com\example\user_service\model\User.class

@@ -42,21 +42,21 @@ public class PolicyController {
     @PostMapping("/{id}/submit")
     public Policy submitPolicy(
             @PathVariable Long id,
-            @RequestParam(required = false, defaultValue = "system") String actor) {
+            @RequestHeader(value = "X-Username", defaultValue = "system") String actor) {
         return policyService.submitPolicy(id, actor);
     }
 
     @PostMapping("/{id}/approve")
     public Policy approvePolicy(
             @PathVariable Long id,
-            @RequestParam(required = false, defaultValue = "system") String actor) {
+            @RequestHeader(value = "X-Username", defaultValue = "system") String actor) {
         return policyService.approvePolicy(id, actor);
     }
 
     @PostMapping("/{id}/reject")
     public Policy rejectPolicy(
             @PathVariable Long id,
-            @RequestParam(required = false, defaultValue = "system") String actor) {
+            @RequestHeader(value = "X-Username", defaultValue = "system") String actor) {
         return policyService.rejectPolicy(id, actor);
     }
 }
