@@ -43,6 +43,14 @@ services:
     networks:
       - governance-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: governance-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - governance-network
+
 volumes:
   postgres_data:
 
