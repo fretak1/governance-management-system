@@ -1,3 +1,4 @@
+com\example\api_gateway\controller\FallbackController.class
 com\example\api_gateway\filter\JwtAuthenticationFilter.class
 com\example\api_gateway\ApiGatewayApplication.class
 com\example\api_gateway\config\GatewayConfig.class

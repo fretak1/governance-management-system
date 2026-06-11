@@ -1,4 +1,5 @@
 C:\Users\nthre\Documents\governance-management-system\api-gateway\src\main\java\com\example\api_gateway\ApiGatewayApplication.java
 C:\Users\nthre\Documents\governance-management-system\api-gateway\src\main\java\com\example\api_gateway\config\GatewayConfig.java
+C:\Users\nthre\Documents\governance-management-system\api-gateway\src\main\java\com\example\api_gateway\controller\FallbackController.java
 C:\Users\nthre\Documents\governance-management-system\api-gateway\src\main\java\com\example\api_gateway\filter\JwtAuthenticationFilter.java
 C:\Users\nthre\Documents\governance-management-system\api-gateway\src\main\java\com\example\api_gateway\util\JwtUtil.java

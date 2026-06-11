@@ -18,16 +18,17 @@ public class GatewayConfig {
     @Bean
     public RouteLocator gatewayRoutes(RouteLocatorBuilder builder) {
         return builder.routes()
-                // Public authentication endpoints in user-service
                 .route("user-service-public", r -> r.path("/auth/register", "/auth/login")
                         .uri("lb://USER-SERVICE"))
-                // Protected governance-service endpoints
                 .route("governance-service", r -> r.path("/policies", "/policies/**")
-                        .filters(f -> f.filter(jwtFilter))
+                        .filters(f -> f.filter(jwtFilter)
+                                .circuitBreaker(c -> c.setName("governanceCircuitBreaker")
+                                        .setFallbackUri("forward:/fallback/governance")))
                         .uri("lb://GOVERNANCE-SERVICE"))
-                // Protected audit-service endpoints
                 .route("audit-service", r -> r.path("/audits", "/audits/**")
-                        .filters(f -> f.filter(jwtFilter))
+                        .filters(f -> f.filter(jwtFilter)
+                                .circuitBreaker(c -> c.setName("auditCircuitBreaker")
+                                        .setFallbackUri("forward:/fallback/audit")))
                         .uri("lb://AUDIT-SERVICE"))
                 .build();
     }
