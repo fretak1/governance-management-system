@@ -6,6 +6,7 @@ import com.example.governance.exception.ResourceNotFoundException;
 import com.example.governance.model.Policy;
 import com.example.governance.model.PolicyStatus;
 import com.example.governance.repository.PolicyRepository;
+import com.example.governance.grpc.AuditGrpcClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,7 @@ public class PolicyService {
 
     private final PolicyRepository policyRepository;
     private final KafkaProducerService kafkaProducerService;
+    private final AuditGrpcClient auditGrpcClient;
 
     private void publishEvent(String eventType, Long policyId, String actor) {
         GovernanceEvent event = GovernanceEvent.builder()
@@ -74,6 +76,10 @@ public class PolicyService {
         policy.setStatus(PolicyStatus.APPROVED);
         Policy savedPolicy = policyRepository.save(policy);
         publishEvent("policy-approved", savedPolicy.getId(), actor);
+        
+        // Trigger synchronous gRPC Audit logging
+        auditGrpcClient.logAudit("policy-approved", savedPolicy.getId(), actor);
+        
         return savedPolicy;
     }
 

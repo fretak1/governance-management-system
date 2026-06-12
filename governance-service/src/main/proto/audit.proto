@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package audit;
+
+option java_multiple_files = true;
+option java_package = "com.example.grpc.audit";
+option java_outer_classname = "AuditProto";
+
+message LogAuditRequest {
+  string event_type = 1;
+  int64 policy_id = 2;
+  string actor = 3;
+  string timestamp = 4; // ISO-8601 string representation of LocalDateTime
+}
+
+message LogAuditResponse {
+  int64 id = 1;
+  string status = 2;
+}
+
+service AuditService {
+  rpc LogAudit (LogAuditRequest) returns (LogAuditResponse);
+}

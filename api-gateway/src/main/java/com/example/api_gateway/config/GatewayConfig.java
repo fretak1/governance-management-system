@@ -20,11 +20,7 @@ public class GatewayConfig {
 
     @Bean
     public RedisRateLimiter redisRateLimiter() {
-        // To allow 10 requests per 60 seconds:
-        // replenishRate: 1 token per second
-        // burstCapacity: 60 tokens maximum (allows burst of 10 requests)
-        // requestedTokens: 6 tokens consumed per request (10 requests * 6 = 60 tokens)
-        return new RedisRateLimiter(1, 60, 6);
+         return new RedisRateLimiter(2, 5);
     }
 
     @Bean
