@@ -3,7 +3,10 @@ package com.example.governance;
 import com.example.governance.dto.PolicyRequest;
 import com.example.governance.model.Policy;
 import com.example.governance.model.PolicyStatus;
+import com.example.governance.model.OutboxEvent;
+import com.example.governance.model.OutboxEventStatus;
 import com.example.governance.repository.PolicyRepository;
+import com.example.governance.repository.OutboxEventRepository;
 import com.example.governance.service.KafkaProducerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -17,12 +20,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -41,6 +42,9 @@ class PolicyIntegrationTest {
 
     @Autowired
     private PolicyRepository policyRepository;
+
+    @Autowired
+    private OutboxEventRepository outboxEventRepository;
 
     private ObjectMapper objectMapper;
 
@@ -79,10 +83,14 @@ class PolicyIntegrationTest {
         Policy dbPolicy = dbPolicyOpt.get();
         assertEquals("Integration Test Policy", dbPolicy.getTitle());
         assertEquals(PolicyStatus.DRAFT, dbPolicy.getStatus());
-        verify(kafkaProducerService, atLeastOnce()).sendEvent(any());
 
-        // 2. Submit the Policy via REST API
-        mockMvc.perform(post("/policies/" + policyId + "/submit?actor=qa-user"))
+        // Verify outbox event created
+        List<OutboxEvent> outboxEvents = outboxEventRepository.findByStatus(OutboxEventStatus.PENDING);
+        assertFalse(outboxEvents.isEmpty());
+        assertTrue(outboxEvents.stream().anyMatch(e -> "policy-created".equals(e.getEventType())));
+
+        // 2. Submit the Policy via REST API (using Header instead of query param)
+        mockMvc.perform(post("/policies/" + policyId + "/submit").header("X-Username", "qa-user"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PENDING_APPROVAL"));
 
@@ -90,14 +98,22 @@ class PolicyIntegrationTest {
         dbPolicy = policyRepository.findById(policyId).orElseThrow();
         assertEquals(PolicyStatus.PENDING_APPROVAL, dbPolicy.getStatus());
 
-        // 3. Approve the Policy via REST API
-        mockMvc.perform(post("/policies/" + policyId + "/approve?actor=approver-user"))
+        // Verify submit outbox event is created
+        outboxEvents = outboxEventRepository.findByStatus(OutboxEventStatus.PENDING);
+        assertTrue(outboxEvents.stream().anyMatch(e -> "policy-submitted".equals(e.getEventType())));
+
+        // 3. Approve the Policy via REST API (using Header instead of query param)
+        mockMvc.perform(post("/policies/" + policyId + "/approve").header("X-Username", "approver-user"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("APPROVED"));
 
         // Verify status updated to APPROVED in the database
         dbPolicy = policyRepository.findById(policyId).orElseThrow();
         assertEquals(PolicyStatus.APPROVED, dbPolicy.getStatus());
+
+        // Verify approve outbox event is created
+        outboxEvents = outboxEventRepository.findByStatus(OutboxEventStatus.PENDING);
+        assertTrue(outboxEvents.stream().anyMatch(e -> "policy-approved".equals(e.getEventType())));
 
         // 4. Retrieve the Policy by ID via REST API
         mockMvc.perform(get("/policies/" + policyId))
@@ -126,18 +142,22 @@ class PolicyIntegrationTest {
         Long policyId = createdPolicy.getId();
 
         // 2. Submit the Policy
-        mockMvc.perform(post("/policies/" + policyId + "/submit?actor=qa-user"))
+        mockMvc.perform(post("/policies/" + policyId + "/submit").header("X-Username", "qa-user"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PENDING_APPROVAL"));
 
         // 3. Reject the Policy
-        mockMvc.perform(post("/policies/" + policyId + "/reject?actor=rejecter-user"))
+        mockMvc.perform(post("/policies/" + policyId + "/reject").header("X-Username", "rejecter-user"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("REJECTED"));
 
         // Verify status in DB
         Policy dbPolicy = policyRepository.findById(policyId).orElseThrow();
         assertEquals(PolicyStatus.REJECTED, dbPolicy.getStatus());
+
+        // Verify outbox events created
+        List<OutboxEvent> outboxEvents = outboxEventRepository.findByStatus(OutboxEventStatus.PENDING);
+        assertTrue(outboxEvents.stream().anyMatch(e -> "policy-rejected".equals(e.getEventType())));
 
         // 4. Retrieve and verify
         mockMvc.perform(get("/policies/" + policyId))
@@ -164,7 +184,7 @@ class PolicyIntegrationTest {
         Long policyId = createdPolicy.getId();
 
         // 2. Try to Approve without submitting (DRAFT -> APPROVED is invalid)
-        mockMvc.perform(post("/policies/" + policyId + "/approve?actor=approver-user"))
+        mockMvc.perform(post("/policies/" + policyId + "/approve").header("X-Username", "approver-user"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Cannot approve policy. Current status is DRAFT but must be PENDING_APPROVAL"));
 

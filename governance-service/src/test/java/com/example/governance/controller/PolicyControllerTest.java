@@ -119,7 +119,7 @@ class PolicyControllerTest {
         mockPolicy.setStatus(PolicyStatus.PENDING_APPROVAL);
         when(policyService.submitPolicy(eq(1L), eq("user1"))).thenReturn(mockPolicy);
 
-        mockMvc.perform(post("/policies/1/submit?actor=user1"))
+        mockMvc.perform(post("/policies/1/submit").header("X-Username", "user1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.status").value("PENDING_APPROVAL"));
@@ -130,7 +130,7 @@ class PolicyControllerTest {
         when(policyService.submitPolicy(eq(1L), eq("user1")))
                 .thenThrow(new InvalidStateTransitionException("Cannot submit policy. Current status is APPROVED but must be DRAFT"));
 
-        mockMvc.perform(post("/policies/1/submit?actor=user1"))
+        mockMvc.perform(post("/policies/1/submit").header("X-Username", "user1"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Cannot submit policy. Current status is APPROVED but must be DRAFT"));
     }
@@ -140,7 +140,7 @@ class PolicyControllerTest {
         mockPolicy.setStatus(PolicyStatus.APPROVED);
         when(policyService.approvePolicy(eq(1L), eq("manager1"))).thenReturn(mockPolicy);
 
-        mockMvc.perform(post("/policies/1/approve?actor=manager1"))
+        mockMvc.perform(post("/policies/1/approve").header("X-Username", "manager1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.status").value("APPROVED"));
@@ -151,7 +151,7 @@ class PolicyControllerTest {
         mockPolicy.setStatus(PolicyStatus.REJECTED);
         when(policyService.rejectPolicy(eq(1L), eq("manager1"))).thenReturn(mockPolicy);
 
-        mockMvc.perform(post("/policies/1/reject?actor=manager1"))
+        mockMvc.perform(post("/policies/1/reject").header("X-Username", "manager1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.status").value("REJECTED"));
@@ -162,7 +162,7 @@ class PolicyControllerTest {
         when(policyService.approvePolicy(eq(1L), eq("manager1")))
                 .thenThrow(new InvalidStateTransitionException("Cannot approve policy. Current status is DRAFT but must be PENDING_APPROVAL"));
 
-        mockMvc.perform(post("/policies/1/approve?actor=manager1"))
+        mockMvc.perform(post("/policies/1/approve").header("X-Username", "manager1"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Cannot approve policy. Current status is DRAFT but must be PENDING_APPROVAL"));
     }
@@ -172,7 +172,7 @@ class PolicyControllerTest {
         when(policyService.rejectPolicy(eq(1L), eq("manager1")))
                 .thenThrow(new InvalidStateTransitionException("Cannot reject policy. Current status is DRAFT but must be PENDING_APPROVAL"));
 
-        mockMvc.perform(post("/policies/1/reject?actor=manager1"))
+        mockMvc.perform(post("/policies/1/reject").header("X-Username", "manager1"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Cannot reject policy. Current status is DRAFT but must be PENDING_APPROVAL"));
     }
@@ -182,7 +182,7 @@ class PolicyControllerTest {
         when(policyService.submitPolicy(eq(999L), eq("user1")))
                 .thenThrow(new ResourceNotFoundException("Policy not found with id: 999"));
 
-        mockMvc.perform(post("/policies/999/submit?actor=user1"))
+        mockMvc.perform(post("/policies/999/submit").header("X-Username", "user1"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Policy not found with id: 999"));
     }
@@ -192,7 +192,7 @@ class PolicyControllerTest {
         when(policyService.approvePolicy(eq(999L), eq("manager1")))
                 .thenThrow(new ResourceNotFoundException("Policy not found with id: 999"));
 
-        mockMvc.perform(post("/policies/999/approve?actor=manager1"))
+        mockMvc.perform(post("/policies/999/approve").header("X-Username", "manager1"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Policy not found with id: 999"));
     }
@@ -202,7 +202,7 @@ class PolicyControllerTest {
         when(policyService.rejectPolicy(eq(999L), eq("manager1")))
                 .thenThrow(new ResourceNotFoundException("Policy not found with id: 999"));
 
-        mockMvc.perform(post("/policies/999/reject?actor=manager1"))
+        mockMvc.perform(post("/policies/999/reject").header("X-Username", "manager1"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Policy not found with id: 999"));
     }
@@ -228,4 +228,3 @@ class PolicyControllerTest {
                 .andExpect(jsonPath("$.length()").value(0));
     }
 }
-

@@ -2,6 +2,9 @@ package com.example.governance;
 
 import com.example.governance.dto.GovernanceEvent;
 import com.example.governance.model.Policy;
+import com.example.governance.repository.PolicyRepository;
+import com.example.governance.repository.OutboxEventRepository;
+import com.example.governance.scheduler.OutboxPoller;
 import com.example.governance.service.PolicyService;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -16,7 +19,6 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 
@@ -25,11 +27,19 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SpringBootTest
 @EmbeddedKafka(partitions = 1, topics = {"governance-events"})
-@Transactional
 class PolicyKafkaIntegrationTest {
 
     @Autowired
     private PolicyService policyService;
+
+    @Autowired
+    private PolicyRepository policyRepository;
+
+    @Autowired
+    private OutboxEventRepository outboxEventRepository;
+
+    @Autowired
+    private OutboxPoller outboxPoller;
 
     @Autowired
     private EmbeddedKafkaBroker embeddedKafkaBroker;
@@ -38,6 +48,9 @@ class PolicyKafkaIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        outboxEventRepository.deleteAll();
+        policyRepository.deleteAll();
+
         Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("test-group", "true", embeddedKafkaBroker);
         consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
         consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.springframework.kafka.support.serializer.JsonDeserializer");
@@ -55,6 +68,8 @@ class PolicyKafkaIntegrationTest {
         if (consumer != null) {
             consumer.close();
         }
+        outboxEventRepository.deleteAll();
+        policyRepository.deleteAll();
     }
 
     @Test
@@ -65,6 +80,9 @@ class PolicyKafkaIntegrationTest {
         policy.setCreatedBy("kafka-tester");
 
         policyService.createPolicy(policy);
+
+        // Manually trigger poller since policy and outbox are now committed
+        outboxPoller.pollOutbox();
 
         ConsumerRecord<String, GovernanceEvent> record = KafkaTestUtils.getSingleRecord(consumer, "governance-events", java.time.Duration.ofSeconds(10));
         assertNotNull(record);

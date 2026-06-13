@@ -15,6 +15,7 @@ import org.springframework.kafka.support.SendResult;
 import java.time.LocalDateTime;
 import java.util.concurrent.CompletableFuture;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -70,4 +71,29 @@ class KafkaProducerServiceTest {
 
         verify(kafkaTemplate, times(1)).send(eq("governance-events"), eq("1"), any(GovernanceEvent.class));
     }
+
+    @Test
+    void sendEventSync_Success() throws Exception {
+        @SuppressWarnings("unchecked")
+        SendResult<String, GovernanceEvent> sendResult = mock(SendResult.class);
+        CompletableFuture<SendResult<String, GovernanceEvent>> future = CompletableFuture.completedFuture(sendResult);
+        when(kafkaTemplate.send(eq("governance-events"), eq("1"), any(GovernanceEvent.class)))
+                .thenReturn(future);
+
+        kafkaProducerService.sendEventSync(mockEvent);
+
+        verify(kafkaTemplate, times(1)).send(eq("governance-events"), eq("1"), any(GovernanceEvent.class));
+    }
+
+    @Test
+    void sendEventSync_Failure() {
+        CompletableFuture<SendResult<String, GovernanceEvent>> future = new CompletableFuture<>();
+        future.completeExceptionally(new RuntimeException("Kafka error"));
+        when(kafkaTemplate.send(eq("governance-events"), eq("1"), any(GovernanceEvent.class)))
+                .thenReturn(future);
+
+        assertThrows(Exception.class, () -> kafkaProducerService.sendEventSync(mockEvent));
+        verify(kafkaTemplate, times(1)).send(eq("governance-events"), eq("1"), any(GovernanceEvent.class));
+    }
 }
+

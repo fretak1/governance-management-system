@@ -5,13 +5,20 @@ import com.example.governance.exception.InvalidStateTransitionException;
 import com.example.governance.exception.ResourceNotFoundException;
 import com.example.governance.model.Policy;
 import com.example.governance.model.PolicyStatus;
+import com.example.governance.model.OutboxEvent;
+import com.example.governance.model.OutboxEventStatus;
 import com.example.governance.repository.PolicyRepository;
+import com.example.governance.repository.OutboxEventRepository;
+import com.example.governance.grpc.AuditGrpcClient;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
@@ -30,7 +37,13 @@ class PolicyServiceTest {
     private PolicyRepository policyRepository;
 
     @Mock
-    private KafkaProducerService kafkaProducerService;
+    private OutboxEventRepository outboxEventRepository;
+
+    @Spy
+    private ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+
+    @Mock
+    private AuditGrpcClient auditGrpcClient;
 
     @InjectMocks
     private PolicyService policyService;
@@ -50,7 +63,7 @@ class PolicyServiceTest {
     }
 
     @Test
-    void createPolicy_Success() {
+    void createPolicy_Success() throws Exception {
         when(policyRepository.save(any(Policy.class))).thenReturn(mockPolicy);
 
         Policy created = policyService.createPolicy(mockPolicy);
@@ -61,13 +74,16 @@ class PolicyServiceTest {
 
         verify(policyRepository, times(1)).save(mockPolicy);
         
-        ArgumentCaptor<GovernanceEvent> eventCaptor = ArgumentCaptor.forClass(GovernanceEvent.class);
-        verify(kafkaProducerService, times(1)).sendEvent(eventCaptor.capture());
+        ArgumentCaptor<OutboxEvent> outboxEventCaptor = ArgumentCaptor.forClass(OutboxEvent.class);
+        verify(outboxEventRepository, times(1)).save(outboxEventCaptor.capture());
         
-        GovernanceEvent capturedEvent = eventCaptor.getValue();
+        OutboxEvent capturedEvent = outboxEventCaptor.getValue();
         assertEquals("policy-created", capturedEvent.getEventType());
-        assertEquals(1L, capturedEvent.getPolicyId());
-        assertEquals("admin", capturedEvent.getActor());
+        assertEquals(OutboxEventStatus.PENDING, capturedEvent.getStatus());
+        
+        GovernanceEvent governanceEvent = objectMapper.readValue(capturedEvent.getPayload(), GovernanceEvent.class);
+        assertEquals(1L, governanceEvent.getPolicyId());
+        assertEquals("admin", governanceEvent.getActor());
     }
 
     @Test
@@ -102,7 +118,7 @@ class PolicyServiceTest {
     }
 
     @Test
-    void submitPolicy_Success() {
+    void submitPolicy_Success() throws Exception {
         when(policyRepository.findById(1L)).thenReturn(Optional.of(mockPolicy));
         when(policyRepository.save(any(Policy.class))).thenReturn(mockPolicy);
 
@@ -113,13 +129,16 @@ class PolicyServiceTest {
 
         verify(policyRepository, times(1)).save(mockPolicy);
         
-        ArgumentCaptor<GovernanceEvent> eventCaptor = ArgumentCaptor.forClass(GovernanceEvent.class);
-        verify(kafkaProducerService, times(1)).sendEvent(eventCaptor.capture());
+        ArgumentCaptor<OutboxEvent> outboxEventCaptor = ArgumentCaptor.forClass(OutboxEvent.class);
+        verify(outboxEventRepository, times(1)).save(outboxEventCaptor.capture());
         
-        GovernanceEvent capturedEvent = eventCaptor.getValue();
+        OutboxEvent capturedEvent = outboxEventCaptor.getValue();
         assertEquals("policy-submitted", capturedEvent.getEventType());
-        assertEquals(1L, capturedEvent.getPolicyId());
-        assertEquals("user1", capturedEvent.getActor());
+        assertEquals(OutboxEventStatus.PENDING, capturedEvent.getStatus());
+
+        GovernanceEvent governanceEvent = objectMapper.readValue(capturedEvent.getPayload(), GovernanceEvent.class);
+        assertEquals(1L, governanceEvent.getPolicyId());
+        assertEquals("user1", governanceEvent.getActor());
     }
 
     @Test
@@ -129,11 +148,11 @@ class PolicyServiceTest {
 
         assertThrows(InvalidStateTransitionException.class, () -> policyService.submitPolicy(1L, "user1"));
         verify(policyRepository, never()).save(any(Policy.class));
-        verify(kafkaProducerService, never()).sendEvent(any(GovernanceEvent.class));
+        verify(outboxEventRepository, never()).save(any(OutboxEvent.class));
     }
 
     @Test
-    void approvePolicy_Success() {
+    void approvePolicy_Success() throws Exception {
         mockPolicy.setStatus(PolicyStatus.PENDING_APPROVAL);
         when(policyRepository.findById(1L)).thenReturn(Optional.of(mockPolicy));
         when(policyRepository.save(any(Policy.class))).thenReturn(mockPolicy);
@@ -145,13 +164,18 @@ class PolicyServiceTest {
 
         verify(policyRepository, times(1)).save(mockPolicy);
         
-        ArgumentCaptor<GovernanceEvent> eventCaptor = ArgumentCaptor.forClass(GovernanceEvent.class);
-        verify(kafkaProducerService, times(1)).sendEvent(eventCaptor.capture());
+        ArgumentCaptor<OutboxEvent> outboxEventCaptor = ArgumentCaptor.forClass(OutboxEvent.class);
+        verify(outboxEventRepository, times(1)).save(outboxEventCaptor.capture());
         
-        GovernanceEvent capturedEvent = eventCaptor.getValue();
+        OutboxEvent capturedEvent = outboxEventCaptor.getValue();
         assertEquals("policy-approved", capturedEvent.getEventType());
-        assertEquals(1L, capturedEvent.getPolicyId());
-        assertEquals("manager1", capturedEvent.getActor());
+        assertEquals(OutboxEventStatus.PENDING, capturedEvent.getStatus());
+
+        GovernanceEvent governanceEvent = objectMapper.readValue(capturedEvent.getPayload(), GovernanceEvent.class);
+        assertEquals(1L, governanceEvent.getPolicyId());
+        assertEquals("manager1", governanceEvent.getActor());
+
+        verify(auditGrpcClient, times(1)).logAudit("policy-approved", 1L, "manager1");
     }
 
     @Test
@@ -161,11 +185,12 @@ class PolicyServiceTest {
 
         assertThrows(InvalidStateTransitionException.class, () -> policyService.approvePolicy(1L, "manager1"));
         verify(policyRepository, never()).save(any(Policy.class));
-        verify(kafkaProducerService, never()).sendEvent(any(GovernanceEvent.class));
+        verify(outboxEventRepository, never()).save(any(OutboxEvent.class));
+        verify(auditGrpcClient, never()).logAudit(any(), any(), any());
     }
 
     @Test
-    void rejectPolicy_Success() {
+    void rejectPolicy_Success() throws Exception {
         mockPolicy.setStatus(PolicyStatus.PENDING_APPROVAL);
         when(policyRepository.findById(1L)).thenReturn(Optional.of(mockPolicy));
         when(policyRepository.save(any(Policy.class))).thenReturn(mockPolicy);
@@ -177,13 +202,16 @@ class PolicyServiceTest {
 
         verify(policyRepository, times(1)).save(mockPolicy);
         
-        ArgumentCaptor<GovernanceEvent> eventCaptor = ArgumentCaptor.forClass(GovernanceEvent.class);
-        verify(kafkaProducerService, times(1)).sendEvent(eventCaptor.capture());
+        ArgumentCaptor<OutboxEvent> outboxEventCaptor = ArgumentCaptor.forClass(OutboxEvent.class);
+        verify(outboxEventRepository, times(1)).save(outboxEventCaptor.capture());
         
-        GovernanceEvent capturedEvent = eventCaptor.getValue();
+        OutboxEvent capturedEvent = outboxEventCaptor.getValue();
         assertEquals("policy-rejected", capturedEvent.getEventType());
-        assertEquals(1L, capturedEvent.getPolicyId());
-        assertEquals("manager1", capturedEvent.getActor());
+        assertEquals(OutboxEventStatus.PENDING, capturedEvent.getStatus());
+
+        GovernanceEvent governanceEvent = objectMapper.readValue(capturedEvent.getPayload(), GovernanceEvent.class);
+        assertEquals(1L, governanceEvent.getPolicyId());
+        assertEquals("manager1", governanceEvent.getActor());
     }
 
     @Test
@@ -193,6 +221,6 @@ class PolicyServiceTest {
 
         assertThrows(InvalidStateTransitionException.class, () -> policyService.rejectPolicy(1L, "manager1"));
         verify(policyRepository, never()).save(any(Policy.class));
-        verify(kafkaProducerService, never()).sendEvent(any(GovernanceEvent.class));
+        verify(outboxEventRepository, never()).save(any(OutboxEvent.class));
     }
 }

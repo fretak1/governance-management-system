@@ -33,4 +33,14 @@ public class KafkaProducerService {
             }
         });
     }
-}
+
+    public void sendEventSync(GovernanceEvent event) throws Exception {
+        log.info("Sending Kafka event synchronously of type {} for Policy ID {}", event.getEventType(), event.getPolicyId());
+        try {
+            kafkaTemplate.send(TOPIC, String.valueOf(event.getPolicyId()), event).get();
+        } catch (Exception e) {
+            log.error("Failed to send Kafka event synchronously for Policy ID [{}]: {}", event.getPolicyId(), e.getMessage());
+            throw e;
+        }
+    }
+}

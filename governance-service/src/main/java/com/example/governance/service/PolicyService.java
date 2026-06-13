@@ -5,8 +5,12 @@ import com.example.governance.exception.InvalidStateTransitionException;
 import com.example.governance.exception.ResourceNotFoundException;
 import com.example.governance.model.Policy;
 import com.example.governance.model.PolicyStatus;
+import com.example.governance.model.OutboxEvent;
+import com.example.governance.model.OutboxEventStatus;
 import com.example.governance.repository.PolicyRepository;
+import com.example.governance.repository.OutboxEventRepository;
 import com.example.governance.grpc.AuditGrpcClient;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,18 +23,31 @@ import java.util.List;
 public class PolicyService {
 
     private final PolicyRepository policyRepository;
-    private final KafkaProducerService kafkaProducerService;
+    private final OutboxEventRepository outboxEventRepository;
+    private final ObjectMapper objectMapper;
     private final AuditGrpcClient auditGrpcClient;
 
     private void publishEvent(String eventType, Long policyId, String actor) {
-        GovernanceEvent event = GovernanceEvent.builder()
-                .eventType(eventType)
-                .policyId(policyId)
-                .actor(actor)
-                .timestamp(LocalDateTime.now())
-                .build();
-        kafkaProducerService.sendEvent(event);
+        try {
+            GovernanceEvent event = GovernanceEvent.builder()
+                    .eventType(eventType)
+                    .policyId(policyId)
+                    .actor(actor)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+            String payload = objectMapper.writeValueAsString(event);
+            OutboxEvent outboxEvent = OutboxEvent.builder()
+                    .eventType(eventType)
+                    .payload(payload)
+                    .status(OutboxEventStatus.PENDING)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            outboxEventRepository.save(outboxEvent);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to save outbox event", e);
+        }
     }
+
 
     @Transactional
     public Policy createPolicy(Policy policy) {
