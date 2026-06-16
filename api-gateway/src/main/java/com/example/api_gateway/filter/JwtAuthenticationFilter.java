@@ -28,7 +28,6 @@ public class JwtAuthenticationFilter implements GatewayFilter {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
 
-        // 1. Check if Authorization header is present and starts with Bearer
         String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return onError(exchange, "Missing or Invalid Authorization Header", HttpStatus.UNAUTHORIZED);
@@ -36,7 +35,6 @@ public class JwtAuthenticationFilter implements GatewayFilter {
 
         String token = authHeader.substring(7);
 
-        // 2. Validate token and extract claims
         try {
             if (!jwtUtil.isTokenValid(token)) {
                 return onError(exchange, "Invalid Token", HttpStatus.UNAUTHORIZED);
@@ -45,7 +43,6 @@ public class JwtAuthenticationFilter implements GatewayFilter {
             String username = jwtUtil.extractUsername(token);
             String role = jwtUtil.extractRole(token);
 
-            // 3. Mutate request to add user context headers
             ServerHttpRequest mutatedRequest = request.mutate()
                     .header("X-Username", username)
                     .header("X-Role", role)
