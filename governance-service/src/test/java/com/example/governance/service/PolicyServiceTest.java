@@ -223,4 +223,50 @@ class PolicyServiceTest {
         verify(policyRepository, never()).save(any(Policy.class));
         verify(outboxEventRepository, never()).save(any(OutboxEvent.class));
     }
+
+    @Test
+    void compensateAuditFailure_ForPolicyCreated_DeletesDraftPolicy() {
+        mockPolicy.setStatus(PolicyStatus.DRAFT);
+        when(policyRepository.findById(1L)).thenReturn(Optional.of(mockPolicy));
+
+        policyService.compensateAuditFailure(1L, "auditor", "policy-created");
+
+        verify(policyRepository).delete(mockPolicy);
+
+        ArgumentCaptor<OutboxEvent> outboxEventCaptor = ArgumentCaptor.forClass(OutboxEvent.class);
+        verify(outboxEventRepository).save(outboxEventCaptor.capture());
+        assertEquals("policy-creation-deleted", outboxEventCaptor.getValue().getEventType());
+    }
+
+    @Test
+    void compensateAuditFailure_ForPolicySubmitted_RevertsToDraft() {
+        mockPolicy.setStatus(PolicyStatus.PENDING_APPROVAL);
+        when(policyRepository.findById(1L)).thenReturn(Optional.of(mockPolicy));
+        when(policyRepository.save(any(Policy.class))).thenReturn(mockPolicy);
+
+        policyService.compensateAuditFailure(1L, "auditor", "policy-submitted");
+
+        assertEquals(PolicyStatus.DRAFT, mockPolicy.getStatus());
+        verify(policyRepository).save(mockPolicy);
+
+        ArgumentCaptor<OutboxEvent> outboxEventCaptor = ArgumentCaptor.forClass(OutboxEvent.class);
+        verify(outboxEventRepository).save(outboxEventCaptor.capture());
+        assertEquals("policy-submission-reverted", outboxEventCaptor.getValue().getEventType());
+    }
+
+    @Test
+    void compensateAuditFailure_ForPolicyRejected_RevertsToPendingApproval() {
+        mockPolicy.setStatus(PolicyStatus.REJECTED);
+        when(policyRepository.findById(1L)).thenReturn(Optional.of(mockPolicy));
+        when(policyRepository.save(any(Policy.class))).thenReturn(mockPolicy);
+
+        policyService.compensateAuditFailure(1L, "auditor", "policy-rejected");
+
+        assertEquals(PolicyStatus.PENDING_APPROVAL, mockPolicy.getStatus());
+        verify(policyRepository).save(mockPolicy);
+
+        ArgumentCaptor<OutboxEvent> outboxEventCaptor = ArgumentCaptor.forClass(OutboxEvent.class);
+        verify(outboxEventRepository).save(outboxEventCaptor.capture());
+        assertEquals("policy-rejection-reverted", outboxEventCaptor.getValue().getEventType());
+    }
 }

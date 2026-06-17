@@ -20,6 +20,8 @@ import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 
+import org.springframework.test.annotation.DirtiesContext;
+
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SpringBootTest
 @EmbeddedKafka(partitions = 1, topics = {"governance-events"})
+@DirtiesContext
 class PolicyKafkaIntegrationTest {
 
     @Autowired
@@ -61,6 +64,13 @@ class PolicyKafkaIntegrationTest {
         ConsumerFactory<String, GovernanceEvent> consumerFactory = new DefaultKafkaConsumerFactory<>(consumerProps);
         consumer = consumerFactory.createConsumer();
         embeddedKafkaBroker.consumeFromAnEmbeddedTopic(consumer, "governance-events");
+        
+        // Drain any existing records in the topic
+        try {
+            KafkaTestUtils.getRecords(consumer, java.time.Duration.ofMillis(500));
+        } catch (Exception e) {
+            // Ignore
+        }
     }
 
     @AfterEach

@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class GovernanceEvent {
     private String eventType;
+    private String failedEventType;
     private Long policyId;
     private String actor;
     private LocalDateTime timestamp;

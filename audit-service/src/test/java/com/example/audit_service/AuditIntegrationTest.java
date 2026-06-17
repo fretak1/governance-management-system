@@ -19,6 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {
+    "grpc.server.port=0",
     "spring.autoconfigure.exclude="
     + "org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration"
 })

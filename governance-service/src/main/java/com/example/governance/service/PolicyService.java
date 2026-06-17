@@ -113,4 +113,55 @@ public class PolicyService {
         publishEvent("policy-rejected", savedPolicy.getId(), actor);
         return savedPolicy;
     }
+
+    @Transactional
+    public void revertPolicyApproval(Long id, String actor) {
+        Policy policy = getPolicyById(id);
+        if (policy.getStatus() == PolicyStatus.APPROVED) {
+            policy.setStatus(PolicyStatus.PENDING_APPROVAL);
+            Policy savedPolicy = policyRepository.save(policy);
+            publishEvent("policy-approval-reverted", savedPolicy.getId(), actor);
+        }
+    }
+
+    @Transactional
+    public void compensateAuditFailure(Long id, String actor, String failedEventType) {
+        if ("policy-created".equals(failedEventType)) {
+            deletePolicyCreatedWithoutAudit(id, actor);
+        } else if ("policy-submitted".equals(failedEventType)) {
+            revertPolicySubmission(id, actor);
+        } else if ("policy-approved".equals(failedEventType)) {
+            revertPolicyApproval(id, actor);
+        } else if ("policy-rejected".equals(failedEventType)) {
+            revertPolicyRejection(id, actor);
+        } else {
+            throw new IllegalArgumentException("Unsupported failed audit event type: " + failedEventType);
+        }
+    }
+
+    private void deletePolicyCreatedWithoutAudit(Long id, String actor) {
+        Policy policy = getPolicyById(id);
+        if (policy.getStatus() == PolicyStatus.DRAFT) {
+            policyRepository.delete(policy);
+            publishEvent("policy-creation-deleted", id, actor);
+        }
+    }
+
+    private void revertPolicySubmission(Long id, String actor) {
+        Policy policy = getPolicyById(id);
+        if (policy.getStatus() == PolicyStatus.PENDING_APPROVAL) {
+            policy.setStatus(PolicyStatus.DRAFT);
+            Policy savedPolicy = policyRepository.save(policy);
+            publishEvent("policy-submission-reverted", savedPolicy.getId(), actor);
+        }
+    }
+
+    private void revertPolicyRejection(Long id, String actor) {
+        Policy policy = getPolicyById(id);
+        if (policy.getStatus() == PolicyStatus.REJECTED) {
+            policy.setStatus(PolicyStatus.PENDING_APPROVAL);
+            Policy savedPolicy = policyRepository.save(policy);
+            publishEvent("policy-rejection-reverted", savedPolicy.getId(), actor);
+        }
+    }
 }

@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 @SpringBootTest(properties = {
+    "grpc.server.port=0",
     "spring.kafka.producer.key-serializer=org.apache.kafka.common.serialization.StringSerializer",
     "spring.kafka.producer.value-serializer=org.springframework.kafka.support.serializer.JsonSerializer"
 })
